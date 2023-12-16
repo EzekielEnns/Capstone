@@ -2,12 +2,20 @@
 //good reffrence
 //https://tung.github.io/posts/rust-and-webassembly-without-a-bundler/
 
-#[derive(Default)]
+#[derive(Clone, Copy)]
 struct St {
     h: i32,
     s: i32,
 }
 
+//stats
+impl St {
+    const fn default() -> Self {
+        St { h: 0, s: 0 }
+    }
+}
+
+//ability
 struct Abi<'a> {
     name: &'a str,
     desc: &'a str,
@@ -15,44 +23,45 @@ struct Abi<'a> {
     cost: St,
     effect: St,
 
+    //what the ability will cost
     loss: fn(&Abi, St) -> St,
-    activate: fn(&Abi, St) -> St
+    //what the ability will do
+    activate: fn(&Abi, St) -> St,
 }
 
-fn def_loss(a: &Abi, _:St)-> St {
-    a.cost 
+fn def_loss(a: &Abi, _: St) -> St {
+    a.cost
 }
 
-fn def_act(a: &Abi, _:St)-> St {
-    a.effect 
+fn def_act(a: &Abi, _: St) -> St {
+    a.effect
 }
 
-impl<'a> Default for Abi<'a> {
-    fn default() -> Self {
-        Abi { 
-            name: "", desc: "", 
-            cost: Default::default() , effect: Default::default(), 
-            loss:def_loss , activate:  def_act
+impl<'a> Abi<'a> {
+    const fn default() -> Self {
+        Abi {
+            name: "",
+            desc: "",
+            cost: St::default(),
+            effect: St::default(),
+            loss: def_loss,
+            activate: def_act,
         }
     }
 }
 
-
-fn slash(_: &Abi,_:St) -> St {
+fn slash(_: &Abi, _: St) -> St {
     St { h: 5, s: 0 }
 }
 
 static TEST: Abi = Abi {
-    name:"slash",
-    desc:"dose 5 damage to your opponent",
+    name: "slash",
+    desc: "dose 5 damage to your opponent",
     cost: St { h: 0, s: 1 },
-    effect: St { h: 5, s: 0},
-    loss:slash,
-    ..Default::default()
-}
-
-
-
+    effect: St { h: 5, s: 0 },
+    loss: slash,
+    ..Abi::default()
+};
 
 const WIDTH: usize = 90;
 const HEIGHT: usize = 30;
