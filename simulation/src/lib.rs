@@ -14,6 +14,17 @@ impl St {
         St { h: 0, s: 0 }
     }
 }
+/*
+game breaks down into a few phases
+ATK
+    sum up per target
+    apply modifyer
+DEF
+ATK
+DEF
+RST
+    itterate lifespan
+*/
 
 //ability
 struct Abi<'a> {
@@ -22,6 +33,9 @@ struct Abi<'a> {
 
     cost: St,
     effect: St,
+
+    lifespan: i32,  //how long effect will be added in rst phase
+    modifyer: bool, //will effect be modifying dmg
 
     //what the ability will cost
     loss: fn(&Abi, St) -> St,
