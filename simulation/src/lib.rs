@@ -2,22 +2,18 @@
 //good reffrence
 //https://tung.github.io/posts/rust-and-webassembly-without-a-bundler/
 
-
 #[derive(Clone, Copy)]
 struct St {
     h: i32,
     s: i32,
-    d:i32,
 }
 
 //stats
 impl St {
     const fn default() -> Self {
-        St { h: 0, s: 0, d:0 }
+        St { h: 0, s: 0 }
     }
-    fn rest(&mut self) {
-        
-    }
+    fn rest(&mut self) {}
 }
 /*
 game breaks down into a few phases
@@ -35,7 +31,7 @@ for {
     wait for input
     let stats,aSide = a.attack()
         //applies modifyers returns a status
-    //set side a info 
+    //set side a info
     //wait for input
     b.deffend(stats) -> side b
         //apply new stats to side b
@@ -49,26 +45,29 @@ this wont be a loop
 */
 
 struct Side<'a> {
-    stats: St
+    stats: St,
     //TODO accomidate multiple players
-    attacks: [&'a mut Abi<'a>;4]
-    deffense: [&'a mut Abi<'a>;4]
-    turn: Vec<&'a mut Abi<'a>>
+    attacks: [(&'a Abi<'a>, &'a mut State); 4],
+    deffense: [(&'a Abi<'a>, &'a mut State); 4],
+    turn: Vec<usize>,
 }
 
 impl<'a> Side<'a> {
-    fn attack(&mut self)-> St {
+    fn attack(&mut self) -> St {
         //itterate over turn, update counters
         //update moves/
         St::default()
     }
 }
 
-//ability
+struct State {
+    uses: i32,
+    combo_index: usize, //negative value indicates out of combo
+}
 
-//TODO fix reffrence issues here / abstraction neeeds fixing 
-//maybe store state info else where?
-#[derive(Clone, Copy)]
+//ability
+//TODO fix reffrence issues here / abstraction neeeds fixing
+
 struct Abi<'a> {
     name: &'a str,
     desc: &'a str,
@@ -76,13 +75,11 @@ struct Abi<'a> {
     cost: St,
     effect: St,
 
-    lifespan: i32,  //how long effect will be added in rst phase
     modifyer: bool, //will effect be modifying dmg
-    //if combo is none its a one off
-    combo: Option<(i32, &'a mut Abi<'a> )>,
-    total: Option<i32>,
-    count: i32,
-    in_combo: bool,
+    max_uses: Option<i32>,
+
+    //TODO set as enum
+    combo: [usize; 4],
 
     //what the ability will cost
     loss: fn(&Abi, St) -> St,
@@ -103,101 +100,122 @@ impl<'a> Abi<'a> {
         Abi {
             name: "",
             desc: "",
-            lifespan: 0,
             modifyer: false,
             cost: St::default(),
             effect: St::default(),
             loss: def_loss,
             activate: def_act,
-            combo: None,
-            total: None,
-            in_combo: false,
-            count:0
+            combo: [0; 4],
+            max_uses: None,
         }
     }
 }
 
-static OF_MOVES:[Abi;4] = [
-    Abi {
-        name: "slash",
-        desc: "a quick slice of 4 damage",
-        cost: St { h: 0, s:2  ,..St::default()},
-        effect: St { h: 5, s:0 ,..St::default() },
-        combo: Some(
-            (2,&mut Abi{
-                name: "Spinning Attack",
-                desc: "hurl yourself to the enemey gettem good",
-                cost: St { h: 0, s:4  ,..St::default()},
-                effect: St { h: 13, s:0 ,..St::default() },
-                ..Abi::default()
-            })
-        ),
-        ..Abi::default()
-    },
-    Abi {
-        name: "Thrust",
-        desc: "drain your enemy of 3 stamina, dealing 10 dmg",
-        cost: St { h: 0, s: 6 ,..St::default() },
-        effect: St {h:20,s:3, ..St::default()},
-        combo : Some(
-            (3,&mut Abi{
-                name:"Pommel Strike",
-                desc: "Walk your enemey upside the head with sword 10 dmg, 20 stamina",
-                cost: St { h: 0, s: 6 ,..St::default() },
-                effect: St {h:10,s:20, ..St::default()},
-                ..Abi::default()
-             })
-        ),
-        ..Abi::default()
-    },
-    Abi {
-        name: "Feint",
-        desc: "Trick your oppenet into loosing 5 stamina",
-        cost: St { h: 0, s: 4, ..St::default() },
-        effect: St {h:0,s:5, ..St::default()},
-        total: Some(1),
-        ..Abi::default()
-    },
-
-    Abi {
-        name: "Hooking",
-        desc: "Attempt to apply disarmed to your oppoenet",
-        cost: St { h: 0, s: 4, ..St::default()  },
-        effect: St {h:0,s:0, d:1,..St::default() },
-        total:Some(1),
-        ..Abi::default()
-    },
+static MOVES: &[(&'static str, Abi)] = &[
+    (
+        "slash",
+        Abi {
+            name: "slash",
+            desc: "a quick slice of 4 damage",
+            cost: St { h: 0, s: 2 },
+            effect: St { h: 5, s: 0 },
+            combo: [0, 0, 1, 0],
+            ..Abi::default()
+        },
+    ),
+    (
+        "spin",
+        Abi {
+            name: "Spinning Strike",
+            desc: "WEEE",
+            cost: St { h: 0, s: 2 },
+            effect: St { h: 10, s: 0 },
+            ..Abi::default()
+        },
+    ),
 ];
 
-static DF_MOVES: [Abi;3] = [
-    Abi {
-        name: "Parry",
-        desc: "Chance to negate some attacks next turn",
-        cost: St { h: 0, s: 5, ..St::default() },
-        effect: St { h:0, s:0, ..St::default()},
-        total: Some(1),
-        modifyer:true, 
-       ..Abi::default()
-    },
-    Abi {
-        name: "Block",
-        desc: "Use Your stamina to block incoming damage",
-        cost: St { h: 0, s: 1, ..St::default() },
-        effect: St { h:1, s:0, ..St::default()},
-        modifyer: true,
-        total: Some(1),
-        ..Abi::default()
-    },
-    Abi {
-        name: "Dodge",
-        desc: "Chance to negate all damge",
-        cost: St { h: 0, s: 5, ..St::default() },
-        effect: St { h:0, s:0, ..St::default()},
-        modifyer: true,
-        total: Some(1),
-        ..Abi::default()
-    },
-]
+// static OF_MOVES:[Abi;4] = [
+//     Abi {
+//         name: "slash",
+//         desc: "a quick slice of 4 damage",
+//         cost: St { h: 0, s:2  ,..St::default()},
+//         effect: St { h: 5, s:0 ,..St::default() },
+//         combo: Some(
+//             (2,&mut Abi{
+//                 name: "Spinning Attack",
+//                 desc: "hurl yourself to the enemey gettem good",
+//                 cost: St { h: 0, s:4  ,..St::default()},
+//                 effect: St { h: 13, s:0 ,..St::default() },
+//                 ..Abi::default()
+//             })
+//         ),
+//         ..Abi::default()
+//     },
+//     Abi {
+//         name: "Thrust",
+//         desc: "drain your enemy of 3 stamina, dealing 10 dmg",
+//         cost: St { h: 0, s: 6 ,..St::default() },
+//         effect: St {h:20,s:3, ..St::default()},
+//         combo : Some(
+//             (3,&mut Abi{
+//                 name:"Pommel Strike",
+//                 desc: "Walk your enemey upside the head with sword 10 dmg, 20 stamina",
+//                 cost: St { h: 0, s: 6 ,..St::default() },
+//                 effect: St {h:10,s:20, ..St::default()},
+//                 ..Abi::default()
+//              })
+//         ),
+//         ..Abi::default()
+//     },
+//     Abi {
+//         name: "Feint",
+//         desc: "Trick your oppenet into loosing 5 stamina",
+//         cost: St { h: 0, s: 4, ..St::default() },
+//         effect: St {h:0,s:5, ..St::default()},
+//         total: Some(1),
+//         ..Abi::default()
+//     },
+
+//     Abi {
+//         name: "Hooking",
+//         desc: "Attempt to apply disarmed to your oppoenet",
+//         cost: St { h: 0, s: 4, ..St::default()  },
+//         effect: St {h:0,s:0, d:1,..St::default() },
+//         total:Some(1),
+//         ..Abi::default()
+//     },
+// ];
+
+// static DF_MOVES: [Abi;3] = [
+//     Abi {
+//         name: "Parry",
+//         desc: "Chance to negate some attacks next turn",
+//         cost: St { h: 0, s: 5, ..St::default() },
+//         effect: St { h:0, s:0, ..St::default()},
+//         total: Some(1),
+//         modifyer:true,
+//        ..Abi::default()
+//     },
+//     Abi {
+//         name: "Block",
+//         desc: "Use Your stamina to block incoming damage",
+//         cost: St { h: 0, s: 1, ..St::default() },
+//         effect: St { h:1, s:0, ..St::default()},
+//         modifyer: true,
+//         total: Some(1),
+//         ..Abi::default()
+//     },
+//     Abi {
+//         name: "Dodge",
+//         desc: "Chance to negate all damge",
+//         cost: St { h: 0, s: 5, ..St::default() },
+//         effect: St { h:0, s:0, ..St::default()},
+//         modifyer: true,
+//         total: Some(1),
+//         ..Abi::default()
+//     },
+// ]
 
 // static TEST: Abi = Abi {
 //     name: "slash",
