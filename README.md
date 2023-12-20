@@ -1,3 +1,30 @@
+```rust
+
+//sending data as pointer
+#[no_mangle]
+pub unsafe extern "C" fn test_me() -> *const u8 {
+    "Hello world".as_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn get_lens() -> *const u8 {
+    [1, 22, 23, 45, 6].as_ptr()
+}
+
+  
+```
+```js
+
+  const test = sim.test_me()
+  const str = new Uint8Array(sim.memory.buffer,test,11) //you need the length of the data 
+  console.log(str)
+  const dec = new TextDecoder() //decodes into extact string
+  console.log(dec.decode(str))
+  
+```
+
+
+
 # example of using raw wasm32-unknown-unknown inside browser
 this is a simple text based 'game' you just move a `@` on a map using `hjkl` (vim motions)
 
